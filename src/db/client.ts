@@ -129,13 +129,35 @@ function explain(error: unknown): unknown {
   const pg = pgError(error);
   if (!pg?.message && !pg?.code) return error;
 
+  /*
+   * Matched on the message as well as the code.
+   *
+   * Neon's HTTP driver returns `code: ''` for connection-level failures — the
+   * SQLSTATE is only populated once a session exists, and authentication fails
+   * before that. So a wrong password arrives with an empty code and a perfectly
+   * clear message, and a hint keyed only on the code says nothing.
+   *
+   * This exact case cost an afternoon: the migration runner connected fine
+   * because the password was passed on the command line, while the app read a
+   * .env.local that still had a placeholder in it. Two different credentials,
+   * one of them wrong, and nothing pointing at the file.
+   */
+  const text = pg.message ?? "";
   const hint =
-    pg.code === "42P01"
+    pg.code === "42P01" || /relation .* does not exist/i.test(text)
       ? "\n\nThe table does not exist — the schema has not been applied to this " +
         "database. Run `npm run db:migrate`."
-      : pg.code === "28P01" || pg.code === "28000"
-        ? "\n\nThe credentials are wrong. Check NETLIFY_DATABASE_URL in .env.local."
-        : "";
+      : pg.code === "28P01" ||
+          pg.code === "28000" ||
+          /password authentication failed|role .* does not exist/i.test(text)
+        ? "\n\nThe credentials are wrong. Check the password in NETLIFY_DATABASE_URL " +
+          "in .env.local — note that this is a DIFFERENT place from any --url you " +
+          "passed on the command line, so migrations can succeed while the app " +
+          "cannot connect."
+        : /ENOTFOUND|ECONNREFUSED|fetch failed/i.test(text)
+          ? "\n\nCould not reach the database host. Check the hostname in " +
+            "NETLIFY_DATABASE_URL, and that the value has no stray quotes around it."
+          : "";
 
   return new Error(
     `Database query failed: ${pg.message ?? "unknown error"}` +
