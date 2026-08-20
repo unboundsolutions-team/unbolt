@@ -36,21 +36,40 @@ Or make the repo in the GitHub UI and `git remote add origin … && git push -u 
 
 ---
 
-## 2. Enable the database · **[you]** · 2 min
+## 2. The database — **already done** ✅
 
-This is the one Netlify step I can't do for you — the API returns an instruction
-rather than performing it.
+You've done this one. Your Database page shows *"Your database is ready!"* with a
+production branch active.
 
-1. Go to **https://app.netlify.com/projects/unbolt**
-2. Left sidebar → **Extensions**
-3. Find **Netlify DB** → **Enable**
+**My instructions were wrong about where to find it**, which is why searching
+Extensions for "netlify DB" returned nothing. It isn't in the extension
+directory at all — **Database** is its own item in the project sidebar, below
+Blobs. Sorry for the detour.
 
-That provisions a Neon database and injects `NETLIFY_DATABASE_URL` into every
-deploy context, each with its own branch. **Never set that variable by hand** — a
+Netlify injects `NETLIFY_DATABASE_URL` into every deploy context from here, each
+with its own branch. **Never set that variable by hand on the site** — a
 hand-written value points production, previews and branches at the same database.
 
-**Check it worked:** Site configuration → Environment variables now lists
-`NETLIFY_DATABASE_URL` with a lock icon.
+## 2b. Run it locally · **[you]** · 3 min
+
+`.env.local` is gitignored, so a fresh clone has no database and no auth secret.
+That's the error you hit. Create `.env.local` in the repository root:
+
+```ini
+# Netlify → your project → Database → connection string
+NETLIFY_DATABASE_URL=postgresql://…
+
+BETTER_AUTH_SECRET=local-development-only-not-a-real-secret-000
+BETTER_AUTH_URL=http://localhost:3000
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+```
+
+Then `npm run dev`. **LOCAL-DEV.md** has the full version, including a local
+Postgres if you'd rather not develop against the real database — which you'll
+want once there are customers on it, but is fine today.
+
+I've also rewritten the error message you saw, so the next person gets told
+where the value comes from instead of just which variable is missing.
 
 ---
 
@@ -62,7 +81,7 @@ scrollback forever.
 
 | Variable | Why |
 |---|---|
-| `BETTER_AUTH_SECRET` | Without it the app **refuses to start**. Better Auth's fallback secret is public, which would make every session token forgeable. |
+| `BETTER_AUTH_SECRET` | Without it the build succeeds and the marketing site looks perfect, but **sign in and register return 500** — the app refuses to sign session tokens with Better Auth's public default secret, which would make every session forgeable. I verified this against a real production build. Set it before the first deploy, not after. |
 | `SHOPIFY_TOKEN_KEY` | Encrypts merchant access tokens at rest. **Must be set before the first store connects** — changing it later makes every stored token undecryptable and every merchant has to reinstall. |
 | `BETTER_AUTH_URL` | Your final domain. Needs step 8 decided first, or set it to `https://unbolt.netlify.app` for now and change it later. |
 
@@ -86,9 +105,11 @@ Add a variable**, and generate each with `openssl rand -base64 32`.
 The first deploy applies all 10 migrations before it publishes. If a migration
 fails the deploy does not go live, which is the behaviour you want.
 
-**Check it worked:** `https://unbolt.netlify.app/pricing` shows three plans with
-real prices. If it shows an error, the database isn't connected — go back to
-step 2.
+**Check it worked, in this order:**
+1. `/pricing` shows three plans with real prices — if not, the database isn't connected.
+2. **`/login` loads and you can register.** Check this specifically: a missing
+   `BETTER_AUTH_SECRET` leaves the rest of the site looking perfectly fine and
+   breaks only this.
 
 ---
 

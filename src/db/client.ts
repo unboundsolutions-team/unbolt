@@ -59,11 +59,29 @@ function create(): Db {
     return createLocal(local);
   }
 
+  /*
+   * The message is long on purpose.
+   *
+   * This is the first error anyone hits on a fresh checkout, and the earlier
+   * version of it named two variables without saying where either comes from.
+   * Somebody reading it after cloning the repo has no way to know that the
+   * value lives in the Netlify UI, or that a plain postgres:// URL will not
+   * work in the first variable. Both mistakes look like the app being broken.
+   */
   throw new Error(
-    "NETLIFY_DATABASE_URL is not set. Netlify injects it once the Netlify DB " +
-      "extension is enabled on the site; for local work either run `netlify dev` " +
-      "so the value is linked from the site, or set DEVELOPMENT_DATABASE_URL to a " +
-      "plain postgres:// URL to use a local Postgres.",
+    "No database configured.\n\n" +
+      "Set ONE of these in a .env.local file at the repository root:\n\n" +
+      "  NETLIFY_DATABASE_URL=postgresql://…\n" +
+      "      The Neon URL from Netlify: your project → Database → the connection\n" +
+      "      string. Netlify injects this automatically on a deploy; locally you\n" +
+      "      either paste it here or run `netlify link && netlify dev`, which\n" +
+      "      links it for you.\n\n" +
+      "  DEVELOPMENT_DATABASE_URL=postgres://user@localhost:5432/unbolt_dev\n" +
+      "      A local Postgres. Honoured ONLY outside production, so it can never\n" +
+      "      point live traffic at a dev box. Use this if you would rather not\n" +
+      "      develop against the real database.\n\n" +
+      "See LOCAL-DEV.md. Note the two are not interchangeable: the first goes\n" +
+      "through Neon's HTTP driver and cannot reach a Postgres on localhost.",
   );
 }
 
