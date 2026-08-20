@@ -3,7 +3,19 @@
 # Secrets are NEVER stored here. They live in Netlify env vars, scoped per context.
 
 [build]
-  command = "npm run build"
+  # Migrations run BEFORE the build, not as a side effect of it.
+  #
+  # Nothing on Netlify applies them automatically. That was assumed since M0 —
+  # in drizzle.config.ts, in scripts/sync-migrations.ts, in the preflight — and
+  # it was never true: @netlify/database is a connection helper with no
+  # migration code, and no build plugin is declared here. A deploy would have
+  # published successfully against an empty database, with every page that
+  # reads data returning 500.
+  #
+  # `&&` is load-bearing. A failed migration exits non-zero, so the build never
+  # starts and nothing publishes — which is the behaviour everyone believed was
+  # already in place.
+  command = "npm run db:migrate && npm run build"
   publish = ".next"
 
 [build.environment]

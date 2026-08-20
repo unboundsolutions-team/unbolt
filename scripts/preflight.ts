@@ -114,9 +114,8 @@ try {
     ok: false,
     detail:
       output.trim() +
-      "\nNetlify applies migrations before publishing a deploy, so this fails " +
-      "the deploy rather than corrupting the database — but it fails it after " +
-      "a full build.",
+      "\nThe Netlify build command runs scripts/migrate.ts before next build, so " +
+      "this fails the deploy rather than corrupting the database.",
   });
 }
 
@@ -148,6 +147,25 @@ if (!toml) {
     detail: "No build command, no headers, no scheduled functions.",
   });
 } else {
+  /*
+   * The build command must apply migrations.
+   *
+   * This check exists because its absence went unnoticed for eight milestones:
+   * three files asserted that Netlify applied them and nothing did. A deploy
+   * would have published against an empty database and reported success.
+   */
+  const migratesOnDeploy = /command\s*=\s*"[^"]*db:migrate[^"]*"/.test(toml);
+  record({
+    name: "netlify.toml: the build applies migrations",
+    severity: "blocker",
+    ok: migratesOnDeploy,
+    detail: migratesOnDeploy
+      ? ""
+      : "The build command does not run db:migrate. Nothing else applies " +
+        "migrations — not Netlify, not @netlify/database. The deploy will " +
+        "succeed against whatever schema the database already has.",
+  });
+
   const siteUrl = /NEXT_PUBLIC_SITE_URL\s*=\s*"([^"]+)"/.exec(toml)?.[1];
   record({
     name: `netlify.toml: production site URL is ${siteUrl ?? "(unset)"}`,

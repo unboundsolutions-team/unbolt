@@ -33,7 +33,8 @@
     "test:e2e:m6": "node tests/m6-flow.mjs",
     "test:e2e:flow": "node tests/e2e-flow.mjs",
     "db:proxy": "node scripts/neon-http-proxy.mjs",
-    "promote:admin": "tsx scripts/promote-admin.ts"
+    "promote:admin": "tsx scripts/promote-admin.ts",
+    "db:migrate": "tsx scripts/migrate.ts"
   },
   "dependencies": {
     "@netlify/database": "^1.1.0",

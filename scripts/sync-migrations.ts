@@ -3,12 +3,18 @@
  * let an already-applied migration be edited.
  *
  * drizzle-kit writes    drizzle/0000_slug.sql
- * Netlify applies       netlify/database/migrations/<timestamp>_<slug>/migration.sql
+ * this reshapes to      netlify/database/migrations/<timestamp>_<slug>/migration.sql
  *
- * Netlify runs these before a deploy publishes; a failure blocks the publish.
- * That makes an applied migration effectively immutable — rewriting one means
- * production and preview databases disagree about history. We hash every
- * migration into a lockfile and fail CI when a recorded hash changes.
+ * scripts/migrate.ts applies them, as the first half of the Netlify build
+ * command. A failure there exits non-zero and nothing publishes.
+ *
+ * (An earlier version of this comment said Netlify applied them itself. It
+ * does not, and never did — see the note in netlify.toml.)
+ *
+ * Once applied, a migration is effectively immutable: rewriting one means
+ * production and preview databases disagree about history. Every migration is
+ * hashed into a lockfile here and CI fails when a recorded hash changes. The
+ * runner checks the same thing against what the database says it applied.
  *
  *   npm run db:sync     reshape + record
  *   npm run db:check    verify only (used by CI)
