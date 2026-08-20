@@ -47,6 +47,13 @@ import { join } from "node:path";
 
 import pg from "pg";
 
+import { loadEnvFiles } from "./env-file.mjs";
+
+// Before reading anything from the environment. Next loads .env.local itself;
+// a plain node script does not, and without this the runner reports "no
+// database URL" while `npm run dev` is connected from the same file.
+const envFiles = loadEnvFiles();
+
 const MIGRATIONS = join("netlify", "database", "migrations");
 
 const args = process.argv.slice(2);
@@ -63,7 +70,10 @@ if (!connectionString) {
   console.error(
     "No database URL.\n\n" +
       "Set NETLIFY_DATABASE_URL (the Neon URL from Netlify → Database) or\n" +
-      "DEVELOPMENT_DATABASE_URL (a local Postgres), or pass --url.",
+      "DEVELOPMENT_DATABASE_URL (a local Postgres), or pass --url.\n\n" +
+      (envFiles.length > 0
+        ? `Read ${envFiles.join(" and ")}, and neither variable was in there.`
+        : "No .env.local found in this directory. Are you in the repository root?"),
   );
   process.exit(2);
 }

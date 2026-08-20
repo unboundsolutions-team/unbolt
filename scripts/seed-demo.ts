@@ -18,6 +18,9 @@
  *
  *   npm run seed:demo
  */
+// MUST be first: Next loads .env.local, a script run through tsx does not.
+import "./env-first.mjs";
+
 import { sql } from "drizzle-orm";
 
 import { db } from "../src/db/client";
