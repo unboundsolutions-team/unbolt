@@ -1,0 +1,15 @@
+-- Show Enterprise on the pricing page.
+--
+-- It was seeded with is_public = false, on the reasoning that an invoiced tier
+-- is a conversation rather than a purchase. That reasoning was wrong for the
+-- page: a three-tier table where the third tier says "talk to us" is how buyers
+-- expect to read pricing, and hiding it made the site look like a two-plan
+-- product while the comparison table, the FAQ copy and the admin panel all
+-- described three.
+--
+-- Done as a migration rather than a click in /admin/plans so every environment
+-- agrees — a value only ever set by hand in production is one a preview deploy
+-- or a fresh database silently disagrees with.
+--
+-- Idempotent: re-running sets it to the value it already has.
+UPDATE plans SET is_public = true WHERE code = 'enterprise';

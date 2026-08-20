@@ -39,6 +39,14 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           </div>
 
           <div className="flex items-center gap-4">
+            {/* Both directions. A one-way door is how somebody ends up signing
+                out and back in to get to their own workspace. */}
+            <Link
+              href="/app"
+              className="font-mono text-[0.68rem] uppercase tracking-[0.14em] text-ink-3 underline-offset-4 transition-colors duration-(--duration-micro) hover:text-ink hover:underline"
+            >
+              My workspace
+            </Link>
             <span className="hidden truncate font-mono text-xs text-ink-3 sm:block">
               {staff.email}
             </span>

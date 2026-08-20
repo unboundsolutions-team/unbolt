@@ -112,7 +112,23 @@ export async function requireAuth(returnTo?: string): Promise<AuthContext> {
   // straight back to /app, which redirects to /login again. The user sees the
   // browser flicker and never reaches anything.
   const user = await getSessionUser();
-  if (user && !user.hasOrganization) redirect("/welcome");
+
+  if (user && !user.hasOrganization) {
+    /*
+     * Staff are not customers, and /welcome asks you to create a workspace.
+     *
+     * A delivery engineer works across every customer and belongs to none, so
+     * they have no membership — and every one of them was landing on a form
+     * inviting them to set up a company. The admin panel they were promoted to
+     * use was never mentioned, and there is no link to it from anywhere on the
+     * customer side.
+     *
+     * This is the same class of mistake as M6's `requireInternal`, which sent
+     * staff to /welcome for the same reason: asking "does this person have an
+     * organisation?" when the question is "is this person a customer?".
+     */
+    redirect(user.isInternal ? "/admin" : "/welcome");
+  }
 
   const target = returnTo ? `/login?next=${encodeURIComponent(returnTo)}` : "/login";
   redirect(target);
