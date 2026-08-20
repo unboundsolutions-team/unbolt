@@ -28,6 +28,8 @@ export interface PgError {
   constraint?: string;
   detail?: string;
   table?: string;
+  /** The human-readable reason. Present on driver errors, absent on wrappers. */
+  message?: string;
 }
 
 /**

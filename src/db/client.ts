@@ -2,6 +2,7 @@ import { neon } from "@netlify/neon";
 import { drizzle } from "drizzle-orm/neon-http";
 
 import * as schema from "./schema";
+import { pgError } from "@/server/pg-error";
 
 /**
  * Netlify DB (Neon) over HTTP.
@@ -105,13 +106,72 @@ function createLocal(connectionString: string): Db {
 }
 
 /**
+ * Put the reason back into a failed query.
+ *
+ * ── What this fixes ─────────────────────────────────────────────────
+ * A failing `db.execute` surfaces as:
+ *
+ *     Failed query:
+ *       SELECT * FROM plans
+ *       WHERE is_public AND is_active
+ *     params:
+ *
+ * — and nothing else. The actual reason ("relation "plans" does not exist",
+ * "password authentication failed", "connection refused") is on `error.cause`,
+ * where the Next error overlay does not show it and nobody thinks to look.
+ *
+ * Every one of those causes needs a completely different fix, and the message
+ * distinguishes none of them. This lifts the underlying Postgres error into the
+ * message, keeps the original on `cause` so isUniqueViolation() still walks the
+ * chain, and adds the one line of advice that the two most common causes share.
+ */
+function explain(error: unknown): unknown {
+  const pg = pgError(error);
+  if (!pg?.message && !pg?.code) return error;
+
+  const hint =
+    pg.code === "42P01"
+      ? "\n\nThe table does not exist — the schema has not been applied to this " +
+        "database. Run `npm run db:migrate`."
+      : pg.code === "28P01" || pg.code === "28000"
+        ? "\n\nThe credentials are wrong. Check NETLIFY_DATABASE_URL in .env.local."
+        : "";
+
+  return new Error(
+    `Database query failed: ${pg.message ?? "unknown error"}` +
+      (pg.code ? ` [${pg.code}]` : "") +
+      (pg.detail ? `\n${pg.detail}` : "") +
+      hint,
+    { cause: error },
+  );
+}
+
+/**
  * Proxy so `db.select(...)` reads naturally at call sites while the underlying
  * client is only constructed on the first property access.
  */
 export const db = new Proxy({} as Db, {
   get(_target, prop, receiver) {
     cached ??= create();
-    return Reflect.get(cached, prop, receiver);
+    const value = Reflect.get(cached, prop, receiver) as unknown;
+
+    // `execute` is every raw-SQL call in this codebase, which is every write
+    // path and most reads. Wrapping it is where the whole benefit is.
+    if (prop === "execute" && typeof value === "function") {
+      return (...args: unknown[]) => {
+        try {
+          return Promise.resolve(
+            (value as (...a: unknown[]) => unknown).apply(cached, args),
+          ).catch((error: unknown) => {
+            throw explain(error);
+          });
+        } catch (error) {
+          throw explain(error);
+        }
+      };
+    }
+
+    return value;
   },
 });
 
