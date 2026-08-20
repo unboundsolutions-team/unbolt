@@ -105,6 +105,14 @@ async function main() {
     // Neon requires TLS. Certificates are publicly valid, so this verifies
     // them rather than passing rejectUnauthorized: false — which is the usual
     // shortcut here and quietly accepts any certificate.
+    //
+    // Setting `ssl` explicitly also settles the deprecation warning pg prints
+    // about `sslmode=require` in the URL. Today pg treats that as verify-full;
+    // in pg v9 it will adopt libpq semantics, where it means "encrypt but do
+    // not verify the certificate" — a silent downgrade for anyone relying on
+    // the connection string alone. This object takes precedence over the URL,
+    // so the behaviour here does not change when that lands. Verified: against
+    // a server with an untrusted certificate this refuses to connect.
     ssl: /sslmode=require|neon\.tech|db\.netlify\.com/.test(connectionString)
       ? { rejectUnauthorized: true }
       : false,
