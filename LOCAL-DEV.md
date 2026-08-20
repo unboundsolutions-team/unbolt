@@ -164,25 +164,98 @@ You'll have seen this several times in the build output:
 The build still succeeded, and locally that's only noise — Better Auth logs it
 and carries on. Setting `BETTER_AUTH_SECRET` in `.env.local` silences it.
 
-**On Netlify it is not noise, and the failure is quieter than you'd want.**
+**On Netlify it is not noise — the build fails outright.**
 
-I checked this by running a production build with the variable genuinely absent.
-What happens is *not* a failed build:
+```
+Error: BETTER_AUTH_SECRET is not set in production.
+> Build error occurred
+[Error: Failed to collect page data for /api/auth/[...all]]
+```
 
-| | |
-|---|---|
-| `npm run build` | **succeeds** |
-| The marketing site | **200, looks perfect** |
-| Sign in / register | **500** |
+`src/lib/auth-guard.ts` throws rather than let Better Auth sign session tokens
+with a public default secret, which would make every session forgeable. Next
+evaluates the auth route while collecting page data, so the throw happens during
+the build and nothing deploys.
 
-`src/lib/auth-guard.ts` refuses to let Better Auth start rather than sign session
-tokens with a public default secret, which would make every session forgeable.
-It fails closed, and only auth is affected — the rest of the site stays up.
+That is the right behaviour: a site where sign-in is silently broken is worse
+than a site that refused to ship.
 
-That's the right trade-off, and it means a deploy without the secret **looks
-fine** until the first person tries to sign in. So set `BETTER_AUTH_SECRET`
-before the first deploy rather than after, and make signing in the first thing
-you check once it's live.
+> **I claimed the opposite twice before writing this**, on the strength of a
+> build that "passed" — because `.env.local` was sitting in the directory and
+> Next loaded it, so the variable was never actually absent. The check that
+> settles it is `mv .env.local /tmp && npx next build`. If you are ever testing
+> what happens *without* some configuration, move the file rather than trusting
+> that you did not set it.
+
+---
+
+## Two things apply these migrations, and they cannot see each other
+
+Netlify applies `netlify/database/migrations/` itself, before it publishes a
+deploy — a platform step, so it appears in no file in this repository. You will
+see it near the top of a build log as **Netlify Database setup**. It keeps its
+own record of what it has run.
+
+`npm run db:migrate` keeps a different record, in a `schema_migrations` table.
+
+Nothing reconciles the two. Applying the schema to the **production** database
+from your laptop and then deploying was enough to stop the site going live at
+all: Netlify's record was empty, so it began at the first migration against a
+database that already had everything, and stopped at
+
+```
+Database migration failed: error running migrations:
+running migration 20260816000001_identity_and_tenancy: pq: type "org_role"
+```
+
+(truncated in the log — the full message is `type "org_role" already exists`).
+A failed migration blocks the publish, so every deploy after it failed the same
+way, and retrying could not help.
+
+Each migration is now wrapped in a guard that returns early when its work is
+already there:
+
+```sql
+DO $unbolt_migration$
+BEGIN
+IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'organizations_set_updated_at') THEN
+  RAISE NOTICE '… is already applied — skipping.';
+  RETURN;
+END IF;
+  … the migration …
+END
+$unbolt_migration$;
+```
+
+so "already applied" is a fact about the database rather than about whichever
+ledger happens to be asking. The whole file is skipped rather than each
+statement being made harmless, which matters: a backfill still runs exactly
+once.
+
+**If you write a migration, wrap it the same way** and guard on the last thing
+it creates. `npm run db:check` fails without the wrapper, and `npm run test:db`
+applies every migration to a scratch database three ways — once, twice, and
+once with the guards forced off — and fails if the results differ.
+
+### `--repair`
+
+Because the guard changed all eleven files, any database migrated before it will
+refuse the new ones:
+
+```
+Refusing to continue — these have already been applied but their contents have changed
+```
+
+Once, for that change only:
+
+```bash
+npm run db:migrate -- --repair
+```
+
+It re-records the hashes and executes no SQL. It is correct only when you can
+show the edit cannot change a database that already ran it — for this one, by
+dumping the schema of a database migrated each way and finding no difference.
+Reach for it because you have that evidence, not because the runner refused.
 
 ---
 

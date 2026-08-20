@@ -1,3 +1,41 @@
+-- ══ Re-runnable ═══════════════════════════════════════════════════
+-- Everything below is wrapped in a block that returns early if this
+-- migration has already been applied, detected by notifications_user_idx.
+--
+-- Why: TWO systems apply these files. Netlify applies them itself before
+-- publishing a deploy, keeping its own record of what it has run, and
+-- `npm run db:migrate` applies them from a laptop, keeping ours in
+-- schema_migrations. The two records are invisible to each other.
+--
+-- Applying this schema to the production database by hand and then
+-- deploying was enough to wedge it permanently: Netlify's record was
+-- empty, so it started again from the first migration and hit
+--
+--     pq: type "org_role" already exists
+--
+-- which blocks the publish. Every deploy after that failed the same way,
+-- and no amount of retrying could clear it, because the database and the
+-- record it was checked against could not be reconciled from either side.
+--
+-- The guard makes "already applied" a fact about the database rather than
+-- about whichever ledger is asking, so either system can run these in any
+-- order, any number of times.
+--
+-- It does NOT make the file safe to edit — an applied migration is still
+-- immutable, and both runners still refuse a changed one. Nor does it make
+-- the statements inside individually idempotent: a backfill still runs
+-- exactly once, because the whole file is skipped rather than each
+-- statement being made harmless. That is deliberate. Statement-level
+-- idempotency would let an UPDATE that backfills a column run a second
+-- time over data it has no business touching.
+-- ══════════════════════════════════════════════════════════════════
+DO $unbolt_migration$
+BEGIN
+IF to_regclass('public.notifications_user_idx') IS NOT NULL THEN
+  RAISE NOTICE '20260817000003_task_engine is already applied — skipping.';
+  RETURN;
+END IF;
+
 -- Unbolt M4 — the task engine
 --
 -- The queue is the product, so this migration carries the two numbers the whole
@@ -137,3 +175,6 @@ CREATE TABLE notifications (
 CREATE INDEX notifications_pending_idx ON notifications (created_at)
   WHERE sent_at IS NULL AND failed_at IS NULL;
 CREATE INDEX notifications_user_idx ON notifications (user_id, created_at DESC);
+
+END
+$unbolt_migration$;

@@ -36,14 +36,33 @@ step 2 below.
 
 ## 1. Enable the database
 
-In the Netlify UI: the site → **Extensions** → **Netlify DB** → enable.
+In the Netlify UI: the site → **Database** in the sidebar. (It is a sidebar
+item, not something you search for under Extensions — the extension of that
+name is deprecated and errors on every build.)
 
 This is what injects `NETLIFY_DATABASE_URL`. Nothing else sets it, and setting it
 by hand is a mistake — every deploy context gets its own branch, and a
 hand-written value points them all at the same one.
 
-The first deploy after this will apply all 10 migrations before it publishes. If
+The first deploy after this will apply all 11 migrations before it publishes. If
 a migration fails the deploy does not go live, which is the behaviour you want.
+
+**Netlify keeps its own record of which migrations it has run, and cannot see
+ours.** `npm run db:migrate` keeps a separate one, in a `schema_migrations`
+table. Applying the schema to the production database from a laptop and then
+deploying used to wedge the site permanently: Netlify's record was empty, so it
+started again from the first migration against a database that already had
+everything, and stopped at
+
+```
+Database migration failed: … pq: type "org_role" already exists
+```
+
+with every retry failing identically, because the disagreement was between two
+ledgers rather than inside either one. Every migration is now wrapped in a
+guard that returns early when its work is already present, so either system can
+run them in any order. `npm run test:db` proves it against a real database on
+every run — see `tests/integration/migrations.test.ts`.
 
 ## 2. Set the environment variables
 

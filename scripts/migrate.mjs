@@ -39,6 +39,7 @@
  *   npm run db:migrate                 # NETLIFY_DATABASE_URL or DEVELOPMENT_DATABASE_URL
  *   npm run db:migrate -- --dry-run    # say what would run, change nothing
  *   npm run db:migrate -- --baseline   # record as applied WITHOUT running
+ *   npm run db:migrate -- --repair     # accept an edited file, run nothing
  */
 
 import { createHash } from "node:crypto";
@@ -59,6 +60,7 @@ const MIGRATIONS = join("netlify", "database", "migrations");
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
 const baseline = args.includes("--baseline");
+const repair = args.includes("--repair");
 const urlFlag = args.indexOf("--url");
 
 const connectionString =
@@ -148,14 +150,54 @@ async function main() {
     const changed = migrations.filter(
       (m) => applied.has(m.name) && applied.get(m.name) !== m.hash,
     );
+    if (changed.length > 0 && repair) {
+      /*
+       * The escape hatch, and the only one.
+       *
+       * "An applied migration is immutable" is a rule about MEANING, and the
+       * check enforcing it is a hash — so it also fires on an edit that cannot
+       * change any database, and there has been exactly one: wrapping every
+       * migration in the guard that makes it skip itself when already applied.
+       * Without a way out, the check that exists to keep the schema honest
+       * becomes the thing that stops you fixing it.
+       *
+       * So this updates the recorded hashes and executes nothing. It is only
+       * ever correct when you can show the new file leaves an already-migrated
+       * database byte-identical — for that change, by dumping the schema of a
+       * database migrated the old way and one migrated the new way and
+       * diffing. Reach for it because you have that evidence, not because the
+       * runner refused.
+       */
+      for (const m of changed) {
+        await client.query(`UPDATE schema_migrations SET hash = $1 WHERE name = $2`, [
+          m.hash,
+          m.name,
+        ]);
+        console.log(`  rehashed ${m.name}`);
+      }
+      console.log(
+        `\n✓ Repaired ${changed.length} record(s). No SQL was executed.\n` +
+          `Run without --repair to apply anything still pending.`,
+      );
+      return;
+    }
+
     if (changed.length > 0) {
       console.error(
         "Refusing to continue — these have already been applied but their " +
           "contents have changed:\n" +
           changed.map((m) => `  ✗ ${m.name}`).join("\n") +
-          "\n\nAn applied migration is immutable. Add a new one instead.",
+          "\n\nAn applied migration is immutable. Add a new one instead.\n\n" +
+          "If — and only if — you can show the edit cannot change a database " +
+          "that has already run it, `npm run db:migrate -- --repair` updates " +
+          "the recorded hashes and executes nothing.",
       );
       process.exit(1);
+    }
+
+    if (repair) {
+      console.log("Nothing to repair — every applied migration matches its file.");
+      return;
     }
 
     const pending = migrations.filter((m) => !applied.has(m.name));

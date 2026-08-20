@@ -20,6 +20,7 @@
  *
  *   npm run db:sync     reshape + record
  *   npm run db:check    verify only (used by CI)
+ *   npm run db:sync -- --repair   re-record hashes after a provably neutral edit
  */
 import { createHash } from "node:crypto";
 import {
@@ -36,6 +37,14 @@ const NETLIFY_MIGRATIONS = join("netlify", "database", "migrations");
 const LOCKFILE = join(NETLIFY_MIGRATIONS, ".applied.json");
 
 const checkOnly = process.argv.includes("--check");
+
+/*
+ * The same escape hatch the runner has, and for the same one reason: an edit
+ * that cannot change any database still changes the hash. Both tools need it,
+ * or repairing one leaves the other refusing — which is the shape of problem
+ * this whole change exists to remove.
+ */
+const repair = process.argv.includes("--repair");
 
 type Lock = Record<string, string>;
 
@@ -85,11 +94,44 @@ function main(): void {
     const digest = sha(readFileSync(file, "utf8"));
     const recorded = lock[dir];
     if (recorded && recorded !== digest) {
+      if (repair && !checkOnly) {
+        lock[dir] = digest;
+        console.log(`  rehashed ${dir}`);
+      } else {
+        violations.push(
+          `${dir}: already applied but its contents changed. ` +
+            `Applied migrations are immutable — add a new migration instead. ` +
+            `If the edit provably cannot change a database that already ran it, ` +
+            `\`npm run db:sync -- --repair\` re-records the hash.`,
+        );
+      }
+    }
+    /*
+     * Every migration must be re-runnable.
+     *
+     * Two systems apply these — Netlify before it publishes a deploy, and
+     * `npm run db:migrate` from a laptop — and each keeps a private record of
+     * what it has run. Once those records disagree, one of them re-runs a
+     * migration the other already applied, the raw `CREATE TYPE` fails with
+     * `type "org_role" already exists`, and the publish is blocked with no way
+     * to clear it from either side. That happened, and it took the site down
+     * before it ever came up.
+     *
+     * The wrapper makes "already applied" a fact about the database instead of
+     * about whichever ledger is asking. A migration written without it puts
+     * the deploy one hand-run away from being wedged again, so this is a
+     * blocker rather than a warning.
+     */
+    const contents = readFileSync(file, "utf8");
+    if (!contents.includes("$unbolt_migration$")) {
       violations.push(
-        `${dir}: already applied but its contents changed. ` +
-          `Applied migrations are immutable — add a new migration instead.`,
+        `${dir}: not wrapped in the re-runnable guard. Copy the DO ` +
+          `$unbolt_migration$ prologue from any existing migration and pick a ` +
+          `predicate that is true once this one has run — normally the last ` +
+          `object it creates.`,
       );
     }
+
     /*
      * An unrecorded migration is a violation in check mode, not something to
      * pass over.
