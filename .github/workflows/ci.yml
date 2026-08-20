@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Design token contrast (WCAG 2.2 AA)
+        run: npm run tokens:contrast
+
+      - name: Unit tests
+        run: npm run test
+
+      - name: Migration integrity
+        run: npm run db:check
+
+      - name: Build
+        run: npm run build
+        env:
+          NETLIFY_DATABASE_URL: postgres://build:build@localhost:5432/build
+
+  e2e:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Horizontal overflow guard
+        run: |
+          npm run build
+          npx next start -p 3000 &
+          npx wait-on http://localhost:3000 -t 60000
+          BASE_URL=http://localhost:3000 npm run test:overflow
+
+      - run: npm run test:e2e
+        env:
+          NETLIFY_DATABASE_URL: postgres://build:build@localhost:5432/build
+
+  lighthouse:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+        env:
+          NETLIFY_DATABASE_URL: postgres://build:build@localhost:5432/build
+      - name: Lighthouse CI
+        run: npx --yes @lhci/cli@0.14.x autorun --config=lighthouserc.json

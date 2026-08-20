@@ -1,0 +1,516 @@
+@import "tailwindcss";
+
+/* ============================================================
+   UNBOLT DESIGN SYSTEM
+   Single source of truth for every visual decision.
+   Nothing in a component may hardcode a colour, radius or duration —
+   the `no-restricted-syntax` rule in eslint.config.mjs fails the build
+   if one does, because a value outside the token set is invisible to
+   the WCAG gate in scripts/check-contrast.ts and can silently ship
+   below AA.
+
+   ── THEMES ──────────────────────────────────────────────────
+   Three approved themes ship in this file. `:root` carries the
+   active one; the others are complete overrides selected by a
+   `data-theme` attribute on <html>.
+
+     nightshift  (active)  near-black · lime drift · Syne
+     meridian              near-black hero · vermilion · Unbounded
+     flux                  near-black · acid · Big Shoulders
+
+   Switching is ONE line — ACTIVE_THEME in src/lib/theme.ts. Every
+   theme is held to the same AA contract, so a swap can never quietly
+   drop the site below AA: `npm run tokens:contrast` checks all three
+   and blocks CI.
+   ============================================================ */
+
+@theme {
+  /* ── Surfaces ─────────────────────────────────────────────
+     Near-black, not black. Pure #000 against a bright accent
+     vibrates on OLED and kills the sense of depth between layers. */
+  --color-base: #050608;
+  --color-raised: #0b0d11;
+  --color-card: #101318;
+  --color-inset: #16191f;
+
+  /* ── Lines ────────────────────────────────────────────────
+     Hairlines carry the grid. Structural, never decorative. */
+  --color-line: #1d2129;
+  --color-line-strong: #2b313c;
+
+  /* ── Ink ──────────────────────────────────────────────────
+     ink-3 is the quietest tone in the system and still clears
+     4.5:1 on the LIGHTEST surface (inset). Nothing exists below
+     it, so no component can reach for a tone that fails. */
+  --color-ink: #f4f6f9;
+  --color-ink-2: #98a0ad;
+  --color-ink-3: #7b8492;
+
+  /* ── Accent — lime drift ──────────────────────────────────
+     One accent. Actionable only: primary buttons, links, focus,
+     and "shipped" on the board. It is never decoration.
+     accent-ink is the only colour allowed on top of it. */
+  --color-accent: #d4ff3f;
+  --color-accent-hover: #e6ff7a;
+  --color-accent-pressed: #b8e327;
+  --color-accent-ink: #0a0f00;
+  --color-accent-soft: #1a2108;
+
+  /* ── Status — the queue vocabulary ────────────────────────
+     Queued is deliberately colourless: nothing is happening yet,
+     so nothing signals. */
+  --color-queued: #7b8492;
+  --color-queued-soft: #12151b;
+  --color-progress: #4c8dff;
+  --color-progress-soft: #0d1729;
+  --color-shipped: #d4ff3f;
+  --color-shipped-soft: #1a2108;
+  --color-urgent: #ff7551;
+  --color-urgent-soft: #2a120c;
+
+  /* ── Background field ─────────────────────────────────────
+     Read by the canvas mesh in JS via getComputedStyle, so the
+     animated field is theme-driven like everything else. */
+  --color-mesh-1: rgba(212, 255, 63, 0.26);
+  --color-mesh-2: rgba(76, 141, 255, 0.3);
+  --color-mesh-3: rgba(255, 117, 81, 0.16);
+  --color-mesh-4: rgba(212, 255, 63, 0.12);
+
+  /* ── Typography ───────────────────────────────────────────
+     Syne carries the character; Space Grotesk does the reading;
+     IBM Plex Mono is reserved for machine-generated values —
+     ticket refs, timestamps, SLA clocks, section markers. Mono is
+     what keeps a bold marketing page reading as an engineering
+     product. Never prose. */
+  --font-display: var(--font-syne), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-space), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.25rem;
+  --text-4xl: 3rem;
+  --text-5xl: 4rem;
+  --text-6xl: 5.25rem;
+
+  /* ── Radii ────────────────────────────────────────────────
+     Restrained. Corners read as cut, not moulded. */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 12px;
+  --radius-xl: 18px;
+  --radius-full: 9999px;
+
+  /* ── Elevation ────────────────────────────────────────────
+     On a near-black canvas a shadow cannot darken, so elevation is
+     carried by surface lightness plus a deep ambient shadow. */
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 4px 16px rgb(0 0 0 / 0.45);
+  --shadow-lg: 0 24px 70px rgb(0 0 0 / 0.6);
+  --shadow-panel: 0 40px 120px rgb(0 0 0 / 0.7);
+  --shadow-accent: 0 8px 30px rgb(212 255 63 / 0.18);
+
+  /* ── Motion ───────────────────────────────────────────────
+     Award-site register: preloader, split-text, scroll reveals,
+     magnetic buttons, smooth scroll. All of it decoration — motion
+     never carries information, and all of it stops under
+     prefers-reduced-motion. */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-soft: cubic-bezier(0.33, 1, 0.68, 1);
+  --ease-in-out-soft: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-micro: 120ms;
+  --duration-fast: 200ms;
+  --duration-base: 350ms;
+  --duration-slow: 700ms;
+
+  /* ── Grid ─────────────────────────────────────────────────
+     One measure site-wide so full-bleed hairlines align across
+     every section. */
+  --spacing-gutter: 1.5rem;
+  --container-measure: 86rem;
+  --container-prose: 40rem;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   THEME: MERIDIAN — vermilion, Unbounded
+   ══════════════════════════════════════════════════════════════ */
+[data-theme="meridian"] {
+  --color-base: #08090d;
+  --color-raised: #0f1117;
+  --color-card: #161922;
+  --color-inset: #1c2029;
+  --color-line: #232733;
+  --color-line-strong: #313746;
+  --color-ink: #f6f4f0;
+  --color-ink-2: #a8adba;
+  --color-ink-3: #858b9a;
+  --color-accent: #ff4d2e;
+  --color-accent-hover: #ff6d54;
+  --color-accent-pressed: #e23a1c;
+  /* Near-black, not white. White on this vermilion measures 3.31:1 and fails
+     AA — the contrast gate caught it. The colour is the point, so the ink
+     moves rather than the accent. */
+  --color-accent-ink: #0d0300;
+  --color-accent-soft: #2a0f08;
+  --color-queued: #858b9a;
+  --color-queued-soft: #14171f;
+  --color-progress: #ffb199;
+  --color-progress-soft: #2a1712;
+  --color-shipped: #3fd69c;
+  --color-shipped-soft: #082018;
+  --color-urgent: #ffb199;
+  --color-urgent-soft: #2a1712;
+  --color-mesh-1: rgba(255, 77, 46, 0.42);
+  --color-mesh-2: rgba(255, 177, 153, 0.3);
+  --color-mesh-3: rgba(12, 154, 108, 0.2);
+  --color-mesh-4: rgba(255, 77, 46, 0.18);
+  --font-display: var(--font-unbounded), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   THEME: FLUX — acid, Big Shoulders
+   ══════════════════════════════════════════════════════════════ */
+[data-theme="flux"] {
+  --color-base: #0a070d;
+  --color-raised: #0f0b13;
+  --color-card: #180f20;
+  --color-inset: #1f1528;
+  --color-line: #241b2c;
+  --color-line-strong: #362a42;
+  --color-ink: #f6f1f9;
+  --color-ink-2: #a99bb2;
+  --color-ink-3: #8b7f94;
+  --color-accent: #a3e635;
+  --color-accent-hover: #bef264;
+  --color-accent-pressed: #84cc16;
+  --color-accent-ink: #0a1400;
+  --color-accent-soft: #16210a;
+  --color-queued: #8b7f94;
+  --color-queued-soft: #191122;
+  --color-progress: #2dd4bf;
+  --color-progress-soft: #08211f;
+  --color-shipped: #a3e635;
+  --color-shipped-soft: #16210a;
+  --color-urgent: #fb923c;
+  --color-urgent-soft: #251505;
+  --color-mesh-1: rgba(163, 230, 53, 0.32);
+  --color-mesh-2: rgba(45, 212, 191, 0.28);
+  --color-mesh-3: rgba(59, 130, 246, 0.18);
+  --color-mesh-4: rgba(163, 230, 53, 0.14);
+  --font-display: var(--font-shoulders), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   BASE
+   ══════════════════════════════════════════════════════════════ */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    border-color: var(--color-line);
+  }
+
+  html {
+    /* Lenis drives smooth scroll; native smooth would fight it. */
+    scroll-behavior: auto;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-base);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-synthesis-weight: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 0.94;
+    text-wrap: balance;
+  }
+
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Tabular figures wherever a number changes under the reader —
+     SLA clocks, queue positions, prices. Stops layout jitter. */
+  [data-numeric] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  ::selection {
+    background: var(--color-accent);
+    color: var(--color-accent-ink);
+  }
+
+  .u-skip-link {
+    position: absolute;
+    left: var(--spacing-gutter);
+    top: -100%;
+    z-index: 200;
+    padding: 0.75rem 1rem;
+    background: var(--color-accent);
+    color: var(--color-accent-ink);
+    border-radius: var(--radius-md);
+    transition: top var(--duration-fast) var(--ease-out-expo);
+  }
+  .u-skip-link:focus {
+    top: var(--spacing-gutter);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   MOTION PRIMITIVES
+   Only transform and opacity animate. Never a layout property.
+   ══════════════════════════════════════════════════════════════ */
+@layer utilities {
+  /* Split-text: each word clips its own line so characters rise
+     from behind a mask rather than fading in place. */
+  .u-split-word {
+    display: inline-block;
+    overflow: hidden;
+    vertical-align: top;
+  }
+  .u-split-inner {
+    display: inline-block;
+    transform: translateY(105%);
+    transition: transform var(--duration-slow) var(--ease-out-expo);
+    will-change: transform;
+  }
+  .u-split-lit .u-split-inner {
+    transform: translateY(0);
+  }
+
+  .u-marquee {
+    display: flex;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .u-marquee > * {
+    display: flex;
+    flex: none;
+    gap: var(--mq-gap, 2.5rem);
+    padding-right: var(--mq-gap, 2.5rem);
+    animation: marquee var(--mq-duration, 30s) linear infinite;
+  }
+  @keyframes marquee {
+    to {
+      transform: translateX(-100%);
+    }
+  }
+
+  /**
+   * Failsafe for the entry overlay.
+   *
+   * The preloader is server-rendered as an opaque, full-screen cover and is
+   * normally removed by JavaScript. That makes any JS failure — a blocked
+   * chunk, a hydration error, a strict CSP, an extension — into a black screen
+   * with nothing clickable behind it. A decorative animation must never be able
+   * to take the whole site down.
+   *
+   * So the overlay also clears itself in CSS, which runs whether or not any
+   * script does. JS normally wins the race by several seconds; this only ever
+   * fires when something has already gone wrong.
+   */
+  @keyframes preloader-failsafe {
+    to {
+      visibility: hidden;
+      opacity: 0;
+      pointer-events: none;
+    }
+  }
+
+  /*
+   * The other half of the same idea, pointed the other way.
+   *
+   * The sign-in form is a client component behind Suspense, so the prerendered
+   * HTML contains a skeleton and nothing else. If the form never arrives —
+   * JavaScript off, a blocked chunk, a hydration crash — the visitor is left
+   * looking at grey bars on the page they came to sign in on, with nothing to
+   * tell them why or what to do instead.
+   *
+   * This reveals an explanation after a delay long enough that a working page
+   * has already replaced the whole fallback. <noscript> would not do: it covers
+   * JavaScript being off and none of the other ways scripts fail to run.
+   */
+  @keyframes reveal-late {
+    to {
+      visibility: visible;
+      opacity: 1;
+    }
+  }
+
+  /*
+   * Failsafe for anything the server renders hidden.
+   *
+   * Reveal starts at opacity 0 and SplitText starts translated out of an
+   * overflow-hidden box, both because that is where their animation begins.
+   * Both depend on JavaScript to finish. If it never runs the content is
+   * present, correct and invisible — measured at 190 painted characters out of
+   * 2,637 on /how-it-works with scripts off.
+   *
+   * `data-anim-pending` is in the server HTML and both components remove it on
+   * mount, so on any page where scripts work this animation is detached before
+   * its delay elapses and never affects the real reveal — including reveals
+   * below the fold that have not been scrolled to yet.
+   *
+   * Five seconds: longer than any honest load, short enough that somebody
+   * looking at a broken page is not still waiting.
+   */
+  [data-anim-pending] {
+    animation: anim-failsafe-fade 1ms linear 5s forwards;
+  }
+  [data-anim-pending] .u-split-inner {
+    animation: anim-failsafe-slide 1ms linear 5s forwards;
+  }
+
+  @keyframes anim-failsafe-fade {
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes anim-failsafe-slide {
+    to {
+      transform: none;
+    }
+  }
+
+  @keyframes pulse-soft {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.25;
+    }
+  }
+
+  @keyframes blink {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      transform: translate3d(0, -4px, 0) scale(0.97);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+  }
+  @keyframes pop-out {
+    from {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: translate3d(0, -4px, 0) scale(0.97);
+    }
+  }
+  @keyframes dialog-in {
+    from {
+      opacity: 0;
+      transform: translate3d(-50%, calc(-50% + 8px), 0) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(-50%, -50%, 0) scale(1);
+    }
+  }
+  @keyframes dialog-out {
+    from {
+      opacity: 1;
+      transform: translate3d(-50%, -50%, 0) scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: translate3d(-50%, calc(-50% + 8px), 0) scale(0.98);
+    }
+  }
+
+  .u-pop {
+    animation: pop-in var(--duration-fast) var(--ease-out-expo);
+  }
+  .u-pop[data-state="closed"] {
+    animation: pop-out var(--duration-micro) var(--ease-out-soft);
+  }
+
+  /* Full-bleed hairline. */
+  .u-rule {
+    border-top: 1px solid var(--color-line);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ACCESSIBILITY — motion is decoration, never information.
+   Everything above degrades to its final state, not to a faster
+   version of itself.
+   ══════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .u-split-inner {
+    transform: none !important;
+  }
+  .u-marquee > * {
+    animation: none !important;
+  }
+  /*
+   * Reveal's hidden initial state used to be skipped by branching on
+   * useReducedMotion() during render. The server has no media queries, so it
+   * always rendered the animated branch and the client sometimes rendered the
+   * other one — a hydration mismatch on every page carrying a Reveal.
+   *
+   * A media query tells the server and the client the same thing. !important is
+   * what makes it stick: author important beats both the inline style Motion
+   * writes and the failsafe animation above.
+   */
+  [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
