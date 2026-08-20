@@ -25,6 +25,17 @@
  * over TCP is a real session, so each file runs inside BEGIN/COMMIT and either
  * lands completely or not at all.
  *
+ * ── Why this is .mjs and not .ts ────────────────────────────────────
+ * Every other script here runs through tsx, which depends on esbuild, which
+ * needs a platform binary fetched by a postinstall script. npm 11 blocks
+ * postinstall scripts by default, and when it does, tsx cannot run at all —
+ * so every tsx script fails at once, including this one.
+ *
+ * That is an acceptable failure for a contrast checker. It is not acceptable
+ * for the thing the deploy runs before it publishes. This file uses `pg` and
+ * node builtins and nothing else, so it works on a bare `npm install` with
+ * every optional step blocked.
+ *
  *   npm run db:migrate                 # NETLIFY_DATABASE_URL or DEVELOPMENT_DATABASE_URL
  *   npm run db:migrate -- --dry-run    # say what would run, change nothing
  *   npm run db:migrate -- --baseline   # record as applied WITHOUT running
@@ -57,19 +68,13 @@ if (!connectionString) {
   process.exit(2);
 }
 
-function sha(contents: string): string {
+function sha(contents) {
   // Same normalisation as sync-migrations.ts, so a Windows checkout does not
   // read as a rewrite of every file.
   return createHash("sha256").update(contents.replace(/\r\n/g, "\n")).digest("hex");
 }
 
-interface Migration {
-  name: string;
-  sql: string;
-  hash: string;
-}
-
-function onDisk(): Migration[] {
+function onDisk() {
   if (!existsSync(MIGRATIONS)) return [];
   return readdirSync(MIGRATIONS, { withFileTypes: true })
     .filter((e) => e.isDirectory())
@@ -84,13 +89,13 @@ function onDisk(): Migration[] {
     });
 }
 
-async function main(): Promise<void> {
+async function main() {
   const client = new pg.Client({
     connectionString,
     // Neon requires TLS. Certificates are publicly valid, so this verifies
     // them rather than passing rejectUnauthorized: false — which is the usual
     // shortcut here and quietly accepts any certificate.
-    ssl: /sslmode=require|neon\.tech|db\.netlify\.com/.test(connectionString!)
+    ssl: /sslmode=require|neon\.tech|db\.netlify\.com/.test(connectionString)
       ? { rejectUnauthorized: true }
       : false,
   });
@@ -107,9 +112,10 @@ async function main(): Promise<void> {
     `);
 
     const applied = new Map(
-      (await client.query<{ name: string; hash: string }>(
-        `SELECT name, hash FROM schema_migrations`,
-      )).rows.map((r) => [r.name, r.hash]),
+      (await client.query(`SELECT name, hash FROM schema_migrations`)).rows.map((r) => [
+        r.name,
+        r.hash,
+      ]),
     );
 
     const migrations = onDisk();
@@ -188,7 +194,7 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((error: unknown) => {
+main().catch((error) => {
   console.error("\nMigration failed:", error instanceof Error ? error.message : error);
   process.exit(1);
 });

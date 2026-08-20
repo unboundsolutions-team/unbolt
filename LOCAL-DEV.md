@@ -44,11 +44,18 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 "@ | Out-File -Encoding utf8 .env.local
 ```
 
-**3. Apply the schema**
+**3. Create the tables**
 
-The database is empty until the migrations run. On Netlify that happens
-automatically before each deploy; locally, run them once with `psql`, or just
-deploy first and let Netlify do it.
+```bash
+npm run db:migrate
+```
+
+The database is empty until this runs — it is what creates all 22 tables and
+seeds the three plans. Safe to run repeatedly; it tracks what it has applied.
+
+This one script is plain JavaScript rather than TypeScript, so it works even
+when npm has blocked postinstall scripts (see *If npm blocked install scripts*
+below).
 
 **4. Run it**
 
@@ -115,21 +122,13 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 Apply the schema:
 
 ```bash
-psql -U postgres -d unbolt_dev -f netlify/database/migrations/20260816000001_identity_and_tenancy/migration.sql
+npm run db:migrate
 ```
 
-…and so on for each directory under `netlify/database/migrations/`, in name
-order. They're numbered to sort correctly. On Linux/macOS:
+It picks up `DEVELOPMENT_DATABASE_URL` on its own. For the test database:
 
 ```bash
-for f in netlify/database/migrations/*/migration.sql; do psql -U postgres -d unbolt_dev -f "$f"; done
-```
-
-PowerShell:
-
-```powershell
-Get-ChildItem netlify/database/migrations/*/migration.sql | Sort-Object FullName |
-  ForEach-Object { psql -U postgres -d unbolt_dev -f $_.FullName }
+npm run db:migrate -- --url postgres://postgres@localhost:5432/unbolt_test
 ```
 
 **Why two variables rather than one that takes any URL:** `NETLIFY_DATABASE_URL`
@@ -186,6 +185,31 @@ before the first deploy rather than after, and make signing in the first thing
 you check once it's live.
 
 ---
+
+## If npm blocked install scripts
+
+npm 11 refuses to run packages' postinstall scripts by default, and warns:
+
+```
+npm warn install-scripts 6 packages had install scripts blocked …
+  esbuild@0.28.2 (postinstall: node install.js)
+  sharp@0.34.5 (install: node install/check.js || npm run build)
+```
+
+That matters more than it looks. **esbuild** fetches a platform binary in that
+step, `tsx` runs on esbuild, and most scripts here run through tsx — so
+`seed:demo`, `promote:admin`, `db:sync`, `preflight` and `tokens:contrast` all
+fail at once with an esbuild error that mentions none of this. **sharp** is what
+Next uses to optimise images.
+
+```bash
+npm install-scripts approve esbuild sharp unrs-resolver
+npm install --legacy-peer-deps
+```
+
+`db:migrate` deliberately does not go through tsx, so it works either way — the
+deploy runs it, and the deploy should not depend on an optional install step
+having succeeded.
 
 ## Checking it works
 

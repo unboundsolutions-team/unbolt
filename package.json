@@ -34,7 +34,7 @@
     "test:e2e:flow": "node tests/e2e-flow.mjs",
     "db:proxy": "node scripts/neon-http-proxy.mjs",
     "promote:admin": "tsx scripts/promote-admin.ts",
-    "db:migrate": "tsx scripts/migrate.ts"
+    "db:migrate": "node scripts/migrate.mjs"
   },
   "dependencies": {
     "@netlify/database": "^1.1.0",
