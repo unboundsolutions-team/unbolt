@@ -1,8 +1,8 @@
 import type { Config } from "drizzle-kit";
 
 /**
- * Generation only. Migrations are applied by scripts/migrate.ts, wired into
- * the Netlify build command — we never
+ * Generation only. Netlify applies migrations on deploy; scripts/migrate.mjs
+ * applies them locally. We never
  * push from a developer machine. `npm run db:generate && npm run db:sync`.
  */
 export default {

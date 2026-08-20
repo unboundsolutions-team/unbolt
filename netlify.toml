@@ -3,19 +3,31 @@
 # Secrets are NEVER stored here. They live in Netlify env vars, scoped per context.
 
 [build]
-  # Migrations run BEFORE the build, not as a side effect of it.
+  # Just the build. Netlify applies the migrations itself.
   #
-  # Nothing on Netlify applies them automatically. That was assumed since M0 —
-  # in drizzle.config.ts, in scripts/sync-migrations.ts, in the preflight — and
-  # it was never true: @netlify/database is a connection helper with no
-  # migration code, and no build plugin is declared here. A deploy would have
-  # published successfully against an empty database, with every page that
-  # reads data returning 500.
+  # ── The correction ────────────────────────────────────────────────
+  # In M8 I concluded that nothing applied migrations on deploy, because
+  # @netlify/database is a connection helper with no migration code and no
+  # build plugin is declared here. I looked in the repository and found
+  # nothing, and stopped there.
   #
-  # `&&` is load-bearing. A failed migration exits non-zero, so the build never
-  # starts and nothing publishes — which is the behaviour everyone believed was
-  # already in place.
-  command = "npm run db:migrate && npm run build"
+  # It is a PLATFORM step, invisible from inside the repo. The first real build
+  # log shows it, before the build command runs:
+  #
+  #   Netlify Database setup
+  #   Loading migrations from netlify/database/migrations directory:
+  #    - 20260816000001_identity_and_tenancy
+  #    … all eleven …
+  #
+  # Adding `npm run db:migrate &&` here then failed the build outright, because
+  # NETLIFY_DATABASE_URL is injected into FUNCTIONS at runtime and is not in the
+  # build environment — the resolved config lists only NODE_VERSION,
+  # NEXT_TELEMETRY_DISABLED and the two NEXT_PUBLIC_ values.
+  #
+  # So the runner stays as a local and manual tool (`npm run db:migrate`), which
+  # is where it earns its place: applying the schema to a fresh database from a
+  # laptop, which the platform step cannot do for you.
+  command = "npm run build"
   publish = ".next"
 
 [build.environment]

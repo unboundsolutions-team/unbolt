@@ -5,11 +5,13 @@
  * drizzle-kit writes    drizzle/0000_slug.sql
  * this reshapes to      netlify/database/migrations/<timestamp>_<slug>/migration.sql
  *
- * scripts/migrate.ts applies them, as the first half of the Netlify build
- * command. A failure there exits non-zero and nothing publishes.
+ * Netlify applies them on deploy, in a platform build step that reads this
+ * directory — visible in a build log as 'Netlify Database setup'. Locally,
+ * `npm run db:migrate` does the same job against a database you name.
  *
- * (An earlier version of this comment said Netlify applied them itself. It
- * does not, and never did — see the note in netlify.toml.)
+ * (This comment has now been wrong in both directions. It first claimed
+ * Netlify applied them with no evidence, then claimed it did not after an
+ * audit that only looked inside the repository. The build log settled it.)
  *
  * Once applied, a migration is effectively immutable: rewriting one means
  * production and preview databases disagree about history. Every migration is

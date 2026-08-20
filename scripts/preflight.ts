@@ -114,8 +114,8 @@ try {
     ok: false,
     detail:
       output.trim() +
-      "\nThe Netlify build command runs scripts/migrate.ts before next build, so " +
-      "this fails the deploy rather than corrupting the database.",
+      "\nNetlify applies these on deploy, so a broken set corrupts the schema " +
+      "rather than merely failing a script.",
   });
 }
 
@@ -148,22 +148,30 @@ if (!toml) {
   });
 } else {
   /*
-   * The build command must apply migrations.
+   * The build command must NOT run db:migrate.
    *
-   * This check exists because its absence went unnoticed for eight milestones:
-   * three files asserted that Netlify applied them and nothing did. A deploy
-   * would have published against an empty database and reported success.
+   * This check is the inverse of what it was, because the reasoning behind it
+   * was wrong. Netlify applies migrations itself, in a platform step that is
+   * invisible from inside the repository — it does not appear in package.json,
+   * in netlify.toml, or in any installed package, which is exactly why an audit
+   * of the repo concluded nothing did it.
+   *
+   * Putting the runner in the build command fails the build, because
+   * NETLIFY_DATABASE_URL is a runtime variable for functions and is not present
+   * during the build.
    */
-  const migratesOnDeploy = /command\s*=\s*"[^"]*db:migrate[^"]*"/.test(toml);
+  const migratesInBuild = /command\s*=\s*"[^"]*db:migrate[^"]*"/.test(toml);
   record({
-    name: "netlify.toml: the build applies migrations",
+    name: "netlify.toml: build command does not run migrations",
     severity: "blocker",
-    ok: migratesOnDeploy,
-    detail: migratesOnDeploy
-      ? ""
-      : "The build command does not run db:migrate. Nothing else applies " +
-        "migrations — not Netlify, not @netlify/database. The deploy will " +
-        "succeed against whatever schema the database already has.",
+    ok: !migratesInBuild,
+    detail: migratesInBuild
+      ? "The build command runs db:migrate. That fails on Netlify: " +
+        "NETLIFY_DATABASE_URL is injected into functions at runtime, not into " +
+        "the build environment, so the runner exits 2 and nothing deploys. " +
+        "Netlify applies the migrations itself — look for 'Netlify Database " +
+        "setup' near the top of a build log."
+      : "",
   });
 
   const siteUrl = /NEXT_PUBLIC_SITE_URL\s*=\s*"([^"]+)"/.exec(toml)?.[1];
